@@ -3,16 +3,20 @@ const cors = require('cors');
 const OpenAI = require('openai');
 const dotenv = require('dotenv');
 
-dotenv.config();
+// Load environment variables only in development
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Helper function to generate the prompt
 const generatePhotoshootPrompt = (formData) => {
   const commonElements = `
     Professional photoshoot with high-end production quality
@@ -60,45 +64,53 @@ const generatePhotoshootPrompt = (formData) => {
   }
 };
 
+// Endpoint to generate photoshoot
 app.post('/generate-photoshoot', async (req, res) => {
   try {
     const formData = req.body;
-    const prompt = generatePhotoshootPrompt(formData);
 
-    // Validate input
     if (!formData.type || !formData.location || !formData.style) {
       return res.status(400).json({ error: 'Missing required photoshoot parameters' });
     }
 
+    const prompt = generatePhotoshootPrompt(formData);
     const imageGenerationOptions = {
-      model: "dall-e-3",
+      model: 'dall-e-3',
       prompt: prompt,
       n: 1,
-      size: "1024x1024",
-      quality: "hd"
+      size: '1024x1024',
+      quality: 'hd',
     };
 
-    const imagePromises = Array(formData.numberOfItems).fill().map(async () => {
-      const imageResponse = await openai.images.generate(imageGenerationOptions);
-      return imageResponse.data[0].url;
-    });
+    const imagePromises = Array(formData.numberOfItems)
+      .fill()
+      .map(async () => {
+        const imageResponse = await openai.images.generate(imageGenerationOptions);
+        return imageResponse.data[0].url;
+      });
 
     const images = await Promise.all(imagePromises);
 
-    res.json({ 
+    res.json({
       images: images,
-      prompt: prompt
+      prompt: prompt,
     });
   } catch (error) {
     console.error('Photoshoot Generation Error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate photoshoot images',
-      details: error.message 
+      details: error.message,
     });
   }
 });
 
+// Test endpoint
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
+
+// Start the server
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
